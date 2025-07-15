@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USD vs XRP Price Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        #priceChart {
+            max-width: 1600px;
+            margin: 40px;
+        }
+        #currentPrice {
+            font-size: 1.5em;
+            margin: 20px 0;
+            color: #333;
+        }
+        #toggleCurrency {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #toggleCurrency:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>XRP Price</h1>
+    <button id="toggleCurrency">Switch to EUR</button>
+    <div id="currentPrice">Loading current price...</div>
+    <canvas id="priceChart"></canvas>
+
+    <script>
+        let currentCurrency = 'usd';
+        let chartInstance = null; // Store chart instance to destroy it when updating
+
+        // Function to fetch current XRP price
+        async function fetchCurrentPrice(currency) {
+            try {
+                const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=ripple&vs_currencies=${currency}`);
+                const data = await response.json();
+                const price = data.ripple[currency];
+                const currencySymbol = currency === 'usd' ? '$' : '€';
+                document.getElementById('currentPrice').innerText = `Current XRP Price: ${currencySymbol}${price.toFixed(4)} ${currency.toUpperCase()}`;
+            } catch (error) {
+                console.error('Error fetching current price:', error);
+                document.getElementById('currentPrice').innerText = 'Error fetching price';
+            }
+        }
+
+        // Function to fetch historical XRP price data (last 30 days)
+        async function fetchHistoricalData(currency) {
+            try {
+                const response = await fetch(`https://api.coingecko.com/api/v3/coins/ripple/market_chart?vs_currency=${currency}&days=30&interval=daily`);
+                const data = await response.json();
+                const prices = data.prices; // Array of [timestamp, price]
+                
+                // Prepare data for Chart.js
+                const labels = prices.map(price => {
+                    const date = new Date(price[0]);
+                    return date.toLocaleDateString();
+                });
+                const priceData = prices.map(price => price[1]);
+
+                // Destroy previous chart instance if it exists
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                // Create the chart
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `XRP Price (${currency.toUpperCase()})`,
+                            data: priceData,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: `Price (${currency.toUpperCase()})`
+                                },
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching historical data:', error);
+            }
+        }
+
+        // Function to update price and chart
+        function updateData(currency) {
+            fetchCurrentPrice(currency);
+            fetchHistoricalData(currency);
+            document.getElementById('toggleCurrency').innerText = `Switch to ${currency === 'usd' ? 'EUR' : 'USD'}`;
+        }
+
+        // Toggle currency button event listener
+        document.getElementById('toggleCurrency').addEventListener('click', () => {
+            currentCurrency = currentCurrency === 'usd' ? 'eur' : 'usd';
+            updateData(currentCurrency);
+        });
+
+        // Fetch data on page load
+        updateData(currentCurrency);
+    </script>
+</body>
+</html>
